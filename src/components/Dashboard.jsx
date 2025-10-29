@@ -298,7 +298,7 @@ async function exportCSV() {
                 <div className="bg-white p-4 rounded shadow flex items-center justify-between">
                   <div>
                     <div className="text-sm text-gray-500">Pending Balance</div>
-                    <div className="text-2xl font-bold">₹{summary.pendingBalance || 0}</div>
+                    <div className="text-2xl font-bold">₹{summary.monthlyTarget-summary.totalCollected || 0}</div>
                   </div>
                   <div className="text-red-600 text-2xl">📉</div>
                 </div>
@@ -518,5 +518,6 @@ async function exportCSV() {
     </div>
   );
 }
+
 
 
