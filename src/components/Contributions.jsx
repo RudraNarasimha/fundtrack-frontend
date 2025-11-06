@@ -6,13 +6,14 @@ const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct",
 
 export default function Contributions() {
   const [contributions, setContributions] = useState([]);
-  const [members, setMembers] = useState([]); // now auto-fills from contributions
+  const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editContribution, setEditContribution] = useState(null);
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+  const [filteredMembers, setFilteredMembers] = useState([]);
   const [formData, setFormData] = useState({
     memberName: '',
     month: new Date().getMonth() + 1,
@@ -24,35 +25,36 @@ export default function Contributions() {
     extra: 0,
   });
 
-  // Fetch contributions
+  // Fetch data
   useEffect(() => {
     fetchContributions();
+    fetchMembers();
   }, []);
 
-  async function fetchContributions() {
+  const fetchContributions = async () => {
     setLoading(true);
     try {
       const res = await fetch(`${API}/contributions`);
       const json = await res.json();
-      const data = json.data || [];
-      setContributions(data);
-
-      // 🧩 auto-fill unique member names from contributions
-      setMembers([...new Set(data.map(c => c.memberName).filter(Boolean))]);
+      setContributions(json.data || []);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching contributions:", err);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  function formatMonthYear(monthNum, year) {
-    if (!monthNum || !year) return '-';
-    const monthIndex = monthNum - 1;
-    return monthNames[monthIndex] + ' ' + year;
-  }
+  const fetchMembers = async () => {
+    try {
+      const res = await fetch(`${API}/members`);
+      const data = await res.json();
+      // handle both { data: [...] } and plain array
+      setMembers(Array.isArray(data) ? data : data.data || []);
+    } catch (err) {
+      console.error("Error fetching members:", err);
+    }
+  };
 
-  // Filter contributions by search + selected month/year
   const filteredContributions = contributions.filter(c => {
     const matchSearch =
       c.memberName?.toLowerCase().includes(search.toLowerCase()) ||
@@ -62,31 +64,47 @@ export default function Contributions() {
     return matchSearch && matchMonth;
   });
 
-  // Modal handlers
   const openModal = (contribution = null) => {
     setEditContribution(contribution);
-    setFormData(contribution ? { ...contribution } : {
-      memberName: '',
-      month: new Date().getMonth() + 1,
-      year: new Date().getFullYear(),
-      target: 300,
-      amountPaid: 0,
-      method: 'Cash',
-      status: 'Pending',
-      extra: 0,
-    });
+    setFormData(
+      contribution
+        ? { ...contribution }
+        : {
+            memberName: '',
+            month: new Date().getMonth() + 1,
+            year: new Date().getFullYear(),
+            target: 300,
+            amountPaid: 0,
+            method: 'Cash',
+            status: 'Pending',
+            extra: 0,
+          }
+    );
+    setFilteredMembers([]);
     setModalOpen(true);
   };
 
   const closeModal = () => {
     setModalOpen(false);
     setEditContribution(null);
+    setFilteredMembers([]);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const memberExists = members.some(
+      (m) => m.memberName.toLowerCase() === formData.memberName.toLowerCase()
+    );
+    if (!memberExists) {
+      alert(`"${formData.memberName}" does not exist. Please add this member first in Members section.`);
+      return;
+    }
+
     try {
-      const url = editContribution ? `${API}/contributions/${editContribution._id}` : `${API}/contributions`;
+      const url = editContribution
+        ? `${API}/contributions/${editContribution._id}`
+        : `${API}/contributions`;
       const method = editContribution ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
@@ -101,7 +119,7 @@ export default function Contributions() {
         alert(data.message || 'Failed to save contribution');
       }
     } catch (err) {
-      console.error(err);
+      console.error("Error saving contribution:", err);
     }
   };
 
@@ -135,17 +153,24 @@ export default function Contributions() {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `contributions_${new Date().toISOString().slice(0,10)}.csv`);
+    link.href = url;
+    link.download = `contributions_${new Date().toISOString().slice(0,10)}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // 🔍 Filtered members for auto-suggest from local list
-  const filteredMembers = members.filter(m =>
-    m?.toLowerCase().includes(formData.memberName.toLowerCase())
-  );
+  const handleMemberInput = (value) => {
+    setFormData({ ...formData, memberName: value });
+    if (value.trim() === '') {
+      setFilteredMembers([]);
+    } else {
+      const filtered = members
+        .map(m => m.memberName)
+        .filter(n => n.toLowerCase().includes(value.toLowerCase()));
+      setFilteredMembers(filtered);
+    }
+  };
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md max-w-full">
@@ -165,9 +190,7 @@ export default function Contributions() {
               <p>
                 Total Amount Paid:{" "}
                 <span className="font-semibold text-green-700">
-                  ₹{filteredContributions
-                    .reduce((sum, c) => sum + Number(c.amountPaid || 0), 0)
-                    .toLocaleString()}
+                  ₹{filteredContributions.reduce((sum, c) => sum + Number(c.amountPaid || 0), 0).toLocaleString()}
                 </span>
               </p>
             </div>
@@ -191,32 +214,32 @@ export default function Contributions() {
       </div>
 
       {/* Filters */}
-    <div className="flex flex-wrap items-center gap-2 mb-6">
-      <select
-        value={filterMonth}
-        onChange={e => setFilterMonth(Number(e.target.value))}
-        className="border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
-      >
-        {monthNames.map((m, i) => (
-          <option key={i} value={i + 1}>{m}</option>
-        ))}
-      </select>
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        <select
+          value={filterMonth}
+          onChange={e => setFilterMonth(Number(e.target.value))}
+          className="border rounded px-3 py-2 focus:ring-2 focus:ring-blue-500"
+        >
+          {monthNames.map((m, i) => (
+            <option key={i} value={i + 1}>{m}</option>
+          ))}
+        </select>
 
-      <input
-        type="number"
-        value={filterYear}
-        onChange={e => setFilterYear(Number(e.target.value))}
-        className="border rounded px-3 py-2 w-24 focus:ring-2 focus:ring-blue-500"
-      />
+        <input
+          type="number"
+          value={filterYear}
+          onChange={e => setFilterYear(Number(e.target.value))}
+          className="border rounded px-3 py-2 w-24 focus:ring-2 focus:ring-blue-500"
+        />
 
-      <input
-        type="text"
-        placeholder="Search by member, method, or status..."
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        className="border border-gray-300 rounded-md p-3 flex-1 min-w-[200px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-    </div>
+        <input
+          type="text"
+          placeholder="Search by member, method, or status..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="border border-gray-300 rounded-md p-3 flex-1 min-w-[200px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
 
       {/* Table */}
       {loading ? (
@@ -278,35 +301,35 @@ export default function Contributions() {
           <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md relative">
             <h3 className="text-xl font-bold mb-4">{editContribution ? 'Edit Contribution' : 'Add Contribution'}</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
-              
-              {/* Member Name with Suggestion */}
+
+              {/* Member Name */}
               <div className="relative">
                 <label className="block mb-1 font-medium text-gray-700">Member Name</label>
                 <input
                   type="text"
-                  placeholder="Type to search member..."
+                  placeholder="Search member..."
                   value={formData.memberName}
-                  onChange={e => setFormData({ ...formData, memberName: e.target.value })}
+                  onChange={e => handleMemberInput(e.target.value)}
+                  readOnly={!!editContribution}
                   required
                   className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                {formData.memberName && filteredMembers.length > 0 && (
-                <ul className="absolute bg-white border w-full mt-1 rounded shadow-md max-h-40 overflow-y-auto z-50">
-                  {filteredMembers.map((m, i) => (
-                    <li
-                      key={i}
-                      onClick={() => {
-                        setFormData({ ...formData, memberName: m });
-                        // 👇 Add this line to clear suggestions after selecting
-                        setTimeout(() => setFormData(f => ({ ...f, memberName: m + " " })), 0);
-                      }}
-                      className="px-3 py-2 hover:bg-blue-100 cursor-pointer"
-                    >
-                      {m}
-                    </li>
-                  ))}
-                </ul>
-              )}
+                {filteredMembers.length > 0 && !editContribution && (
+                  <ul className="absolute bg-white border w-full mt-1 rounded shadow-md max-h-40 overflow-y-auto z-50">
+                    {filteredMembers.map((m, i) => (
+                      <li
+                        key={i}
+                        onClick={() => {
+                          setFormData({ ...formData, memberName: m });
+                          setFilteredMembers([]); // hide after selection
+                        }}
+                        className="px-3 py-2 hover:bg-blue-100 cursor-pointer"
+                      >
+                        {m}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               {/* Month & Year */}
@@ -334,7 +357,7 @@ export default function Contributions() {
                 </div>
               </div>
 
-              {/* Amounts */}
+              {/* Target & Amount */}
               <div className="flex space-x-2">
                 <div className="w-1/2">
                   <label className="block mb-1 font-medium text-gray-700">Target</label>
@@ -367,7 +390,7 @@ export default function Contributions() {
                 />
               </div>
 
-              {/* Method & Status */}
+              {/* Payment Method & Status */}
               <div className="flex space-x-2">
                 <div className="w-1/2">
                   <label className="block mb-1 font-medium text-gray-700">Payment Method</label>
@@ -397,8 +420,13 @@ export default function Contributions() {
 
               {/* Buttons */}
               <div className="flex justify-end space-x-2 pt-2">
-                <button type="button" onClick={closeModal} className="px-4 py-2 border rounded hover:bg-gray-100">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                <button type="button" onClick={closeModal} className="px-4 py-2 border rounded hover:bg-gray-100">
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
                   {editContribution ? 'Update' : 'Add'}
                 </button>
               </div>
