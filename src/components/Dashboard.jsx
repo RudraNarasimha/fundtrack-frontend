@@ -15,32 +15,35 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const COLORS = ['#2b8aef','#2ecc71','#f39c12','#e74c3c','#9b59b6'];
 
-export default function Dashboard(){
+export default function Dashboard() {
   const navigate = useNavigate();
   const today = new Date();
-  const [month,setMonth] = useState(today.getMonth()+1);
-  const [year,setYear] = useState(today.getFullYear());
-  const [method,setMethod] = useState('All');
-  const [status,setStatus] = useState('All');
-  const [search,setSearch] = useState('');
-  const [rows,setRows] = useState([]);
-  const [summary,setSummary] = useState({
-    targetPerHead:0, monthlyTarget:0, totalCollected:0, pendingBalance:0, extraContributions:0
+  const [month, setMonth] = useState(today.getMonth() + 1);
+  const [year, setYear] = useState(today.getFullYear());
+  const [method, setMethod] = useState('All');
+  const [status, setStatus] = useState('All');
+  const [search, setSearch] = useState('');
+  const [rows, setRows] = useState([]);
+  const [summary, setSummary] = useState({
+    targetPerHead: 0,
+    monthlyTarget: 0,
+    totalCollected: 0,
+    pendingBalance: 0,
+    extraContributions: 0
   });
-  const [chartData,setChartData] = useState({ monthly: [], methods: [] });
-  const [loading,setLoading] = useState(false);
-  const [activeTab,setActiveTab] = useState('Dashboard');
+  const [chartData, setChartData] = useState({ monthly: [], methods: [] });
+  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('Dashboard');
   const [viewMode, setViewMode] = useState('Single');
 
-  // Track login state
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('adminToken'));
 
   useEffect(() => {
     fetchAll();
     fetchCharts();
-  }, [month,year,method,status,search]);
+  }, [month, year, method, status, search, viewMode]);
 
-  async function fetchAll(){
+  async function fetchAll() {
     setLoading(true);
     try {
       const q = new URLSearchParams({ month, year, method, status, search });
@@ -93,108 +96,104 @@ export default function Dashboard(){
       }));
 
       setChartData({ monthly: months, methods: pie });
-
     } catch (err) {
       console.error(err);
     }
   }
 
-async function exportCSV() {
-  try {
-    const q = new URLSearchParams({ month, year });
-    const res = await fetch(`${API}/export?${q.toString()}`);
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.error('CSV fetch error:', text);
-      throw new Error('Failed to fetch CSV');
+  async function exportCSV() {
+    try {
+      const q = new URLSearchParams({ month, year });
+      const res = await fetch(`${API}/export?${q.toString()}`);
+      if (!res.ok) {
+        const text = await res.text();
+        console.error('CSV fetch error:', text);
+        throw new Error('Failed to fetch CSV');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `contributions_${month}_${year}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert('Failed to export CSV');
     }
-
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `contributions_${month}_${year}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error(err);
-    alert('Failed to export CSV');
   }
-}
-
 
   function handleLoginLogout() {
-    if(isLoggedIn){
-      // Logout
+    if (isLoggedIn) {
       localStorage.removeItem('adminToken');
       setIsLoggedIn(false);
-      setActiveTab('Dashboard'); // keep dashboard as active
+      setActiveTab('Dashboard');
     } else {
-      navigate('/admin-login'); // navigate to login
+      navigate('/admin-login');
     }
   }
 
   return (
-<div className="p-6 max-w-7xl mx-auto">
-  {/* Header */}
-  <div className="flex flex-col md:flex-row items-center justify-between mb-6 space-y-4 md:space-y-0">
-    <div className="flex items-center space-x-4">
-      <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg">
+    <div className="p-6 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row items-center justify-between mb-6 space-y-4 md:space-y-0">
+        <div className="flex items-center space-x-4">
+          <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg">
             <span className="text-5xl text-white">₹</span>
+          </div>
+          <div>
+            <div className="font-semibold text-xl text-gray-900">Sri Bala Ganesh Sevadal</div>
+            <div className="text-sm text-gray-500">Fund Tracking System</div>
+          </div>
+        </div>
+
+        {/* Top Navbar + Admin Login container */}
+        <div className="flex items-center justify-between space-x-4 mb-4 max-w-4xl">
+          {/* Top Navbar */}
+          <div className="flex space-x-4">
+            {[
+              { name: 'Dashboard', icon: <FaChartPie className="inline-block mr-2 text-lg" /> },
+              ...(isLoggedIn ? [
+                { name: 'Members', icon: <FaUsers className="inline-block mr-2 text-lg" /> },
+                { name: 'Contributions', icon: <FaHandHoldingUsd className="inline-block mr-2 text-lg" /> }
+              ] : [])
+            ].map(tab => (
+              <button
+                key={tab.name}
+                onClick={() => setActiveTab(tab.name)}
+                className={`flex items-center px-5 py-2 rounded-md font-medium transition-colors duration-200 ${
+                  activeTab === tab.name
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+                aria-current={activeTab === tab.name ? 'page' : undefined}
+              >
+                {tab.icon}
+                <span>{tab.name}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Admin Login / Logout */}
+          <div>
+            <button onClick={handleLoginLogout}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-md font-semibold shadow-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center space-x-2"
+            >
+              {isLoggedIn ? <FaSignOutAlt className="w-4 h-4" /> : <FaSignInAlt className="w-4 h-4" />}
+              <span>{isLoggedIn ? 'Logout' : 'Admin Login'}</span>
+            </button>
+          </div>
+        </div>
       </div>
-      <div>
-        <div className="font-semibold text-xl text-gray-900">Sri Bala Ganesh Sevadal</div>
-        <div className="text-sm text-gray-500">Fund Tracking System</div>
-      </div>
-    </div>
 
-{/* Top Navbar + Admin Login container */}
-<div className="flex items-center justify-between space-x-4 mb-4 max-w-4xl">
-  {/* Top Navbar */}
-  <div className="flex space-x-4">
-    {[
-      { name: 'Dashboard', icon: <FaChartPie className="inline-block mr-2 text-lg" /> },
-      ...(isLoggedIn ? [
-        { name: 'Members', icon: <FaUsers className="inline-block mr-2 text-lg" /> },
-        { name: 'Contributions', icon: <FaHandHoldingUsd className="inline-block mr-2 text-lg" /> }
-      ] : [])
-    ].map(tab => (
-      <button
-        key={tab.name}
-        onClick={() => setActiveTab(tab.name)}
-        className={`flex items-center px-5 py-2 rounded-md font-medium transition-colors duration-200 ${
-          activeTab === tab.name
-            ? 'bg-blue-600 text-white shadow-md'
-            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-        }`}
-        aria-current={activeTab === tab.name ? 'page' : undefined}
-      >
-        {tab.icon}
-        <span>{tab.name}</span>
-      </button>
-    ))}
-  </div>
+      {/* Page Title */}
+      <h1 className="text-3xl font-extrabold text-gray-900 mb-1">{activeTab}</h1>
+      <p className="text-sm text-gray-600 mb-6 tracking-wide">Sri Bala Ganesh Youth Sevadal</p>
 
-  {/* Admin Login / Logout */}
-  <div>
-    <button onClick={handleLoginLogout}
-      className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-md font-semibold shadow-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center space-x-2"
-    >
-      {isLoggedIn ? <FaSignOutAlt className="w-4 h-4" /> : <FaSignInAlt className="w-4 h-4" />}
-      <span>{isLoggedIn ? 'Logout' : 'Admin Login'}</span>
-    </button>
-  </div>
-</div>
-</div>
-
-{/* Page Title */}
-<h1 className="text-3xl font-extrabold text-gray-900 mb-1">{activeTab}</h1>
-<p className="text-sm text-gray-600 mb-6 tracking-wide">Sri Bala Ganesh Youth Sevadal</p>
       {/* Dashboard Tab */}
-      {activeTab==='Dashboard' && (
+      {activeTab === 'Dashboard' && (
         <>
           {/* Filters */}
           <div className="bg-white p-4 rounded-lg shadow mb-6">
@@ -215,20 +214,20 @@ async function exportCSV() {
                 <label className="text-sm text-gray-600">Month</label>
                 <select
                   value={month}
-                  onChange={e=>setMonth(Number(e.target.value))}
+                  onChange={e => setMonth(Number(e.target.value))}
                   className="border rounded px-2 py-1"
                   disabled={viewMode === 'All'}
                 >
-                  {monthNames.map((m,i)=>(<option key={i} value={i+1}>{m}</option>))}
+                  {monthNames.map((m, i) => (<option key={i} value={i + 1}>{m}</option>))}
                 </select>
 
                 <label className="text-sm text-gray-600">Year</label>
                 <select
                   value={year}
-                  onChange={e=>setYear(Number(e.target.value))}
+                  onChange={e => setYear(Number(e.target.value))}
                   className="border rounded px-2 py-1"
                 >
-                  {[2024,2025,2026].map(y=><option key={y} value={y}>{y}</option>)}
+                  {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
               </div>
 
@@ -243,7 +242,7 @@ async function exportCSV() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
                 <div>
                   <label className="text-sm text-gray-600">Payment Method</label>
-                  <select value={method} onChange={e=>setMethod(e.target.value)} className="w-full border rounded px-2 py-1">
+                  <select value={method} onChange={e => setMethod(e.target.value)} className="w-full border rounded px-2 py-1">
                     <option>All</option>
                     <option>Cash</option>
                     <option>UPI</option>
@@ -252,7 +251,7 @@ async function exportCSV() {
                 </div>
                 <div>
                   <label className="text-sm text-gray-600">Status</label>
-                  <select value={status} onChange={e=>setStatus(e.target.value)} className="w-full border rounded px-2 py-1">
+                  <select value={status} onChange={e => setStatus(e.target.value)} className="w-full border rounded px-2 py-1">
                     <option>All</option>
                     <option>Paid</option>
                     <option>Partial</option>
@@ -261,15 +260,13 @@ async function exportCSV() {
                 </div>
                 <div className="md:col-span-2">
                   <label className="text-sm text-gray-600">Search Member</label>
-                  <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." className="w-full border rounded px-2 py-1" />
+                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." className="w-full border rounded px-2 py-1" />
                 </div>
               </div>
             )}
           </div>
 
-          {/* ============================= */}
           {/* Single Month View */}
-          {/* ============================= */}
           {viewMode === 'Single' && (
             <>
               {/* Summary Cards */}
@@ -298,7 +295,7 @@ async function exportCSV() {
                 <div className="bg-white p-4 rounded shadow flex items-center justify-between">
                   <div>
                     <div className="text-sm text-gray-500">Pending Balance</div>
-                    <div className="text-2xl font-bold">₹{summary.monthlyTarget-summary.totalCollected || 0}</div>
+                    <div className="text-2xl font-bold">₹{Math.max(0, (summary.monthlyTarget - summary.totalCollected) || 0)}</div>
                   </div>
                   <div className="text-red-600 text-2xl">📉</div>
                 </div>
@@ -525,7 +522,5 @@ async function exportCSV() {
     </div>
   );
 }
-
-
 
 
