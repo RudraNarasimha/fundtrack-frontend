@@ -121,18 +121,38 @@ export default function Members() {
     <div className="p-6 bg-white rounded-xl shadow-lg border border-gray-100">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 flex items-center space-x-2">
+        <div className="flex items-center space-x-3">
           <span className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg">
-            <FaUsers className="text-white text-[20px]" /> 
+            <FaUsers className="text-white text-[20px]" />
           </span>
-          <span>Members List</span>
-        </h2>
-        <div className="flex items-center space-x-4">
-          <p className="text-sm text-gray-500">Total Members: {filteredMembers.length || 0}</p>
-            <button onClick={exportCSV} className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded flex items-center space-x-2">
-    ⬇ Export CSV
-  </button>
-          <button onClick={() => openModal()} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center space-x-2">
+          <div>
+            <h2 className="text-2xl font-semibold text-gray-900">Members List</h2>
+            <div className="flex flex-wrap gap-4 text-sm text-gray-600 mt-1">
+              <p>
+                Total Members:{" "}
+                <span className="font-semibold text-gray-800">{filteredMembers.length || 0}</span>
+              </p>
+              <p>
+                Active Members:{" "}
+                <span className="font-semibold text-green-700">
+                  {filteredMembers.filter(m => m.active).length}
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={exportCSV}
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded flex items-center space-x-2"
+          >
+            ⬇ Export CSV
+          </button>
+          <button
+            onClick={() => openModal()}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center space-x-2"
+          >
             <FaPlus /> <span>Add Member</span>
           </button>
         </div>
