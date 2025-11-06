@@ -15,23 +15,13 @@ export default function Members() {
     fetchMembers();
   }, []);
 
+  // Fetch members
   async function fetchMembers() {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/contributions`);
+      const res = await fetch(`${API}/members`);
       const json = await res.json();
-      const grouped = {};
-      (json.data || []).forEach((item) => {
-        if (!grouped[item.memberName]) {
-          grouped[item.memberName] = {
-            memberName: item.memberName || '',
-            email: item.email || '',
-            phone: item.phone || '',
-            active: item.active === true,
-          };
-        }
-      });
-      setMembers(Object.values(grouped));
+      setMembers(json.data || []);
     } catch (err) {
       console.error('Error fetching members:', err);
     } finally {
@@ -39,16 +29,16 @@ export default function Members() {
     }
   }
 
-  const filteredMembers = members.filter(m => 
-    m.memberName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    m.email.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    m.phone.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredMembers = members.filter(m =>
+    m.memberName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (m.email && m.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (m.phone && m.phone.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  // Open modal for Add or Edit
+  // Open Add/Edit modal
   const openModal = (member = null) => {
     setEditMember(member);
-    setFormData(member ? {...member} : { memberName: '', email: '', phone: '', active: true });
+    setFormData(member ? { ...member } : { memberName: '', email: '', phone: '', active: true });
     setModalOpen(true);
   }
 
@@ -57,11 +47,11 @@ export default function Members() {
     setEditMember(null);
   }
 
-  // Handle Add / Edit Submit
+  // Add or Edit member
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const url = editMember ? `${API}/members/${editMember.memberName}` : `${API}/members`;
+      const url = editMember ? `${API}/members/${editMember._id}` : `${API}/members`;
       const method = editMember ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
@@ -81,41 +71,42 @@ export default function Members() {
   }
 
   // Delete member
-  const handleDelete = async (memberName) => {
-    if (!window.confirm(`Are you sure you want to delete ${memberName}?`)) return;
+  const handleDelete = async (id) => {
+    if (!window.confirm(`Are you sure you want to delete this member?`)) return;
     try {
-      const res = await fetch(`${API}/members/${memberName}`, { method: 'DELETE' });
+      const res = await fetch(`${API}/members/${id}`, { method: 'DELETE' });
       if (res.ok) fetchMembers();
     } catch (err) {
       console.error(err);
     }
   }
 
+  // Export CSV
   const exportCSV = () => {
-  if (members.length === 0) return alert("No members to export");
+    if (members.length === 0) return alert("No members to export");
 
-  const header = ["Member Name", "Email", "Phone", "Status"];
-  const rowsData = members.map(m => [
-    m.memberName,
-    m.email || '',
-    m.phone || '',
-    m.active ? 'Active' : 'Inactive'
-  ]);
+    const header = ["Member Name", "Email", "Phone", "Status"];
+    const rowsData = members.map(m => [
+      m.memberName,
+      m.email || '',
+      m.phone || '',
+      m.active ? 'Active' : 'Inactive'
+    ]);
 
-  const csvContent = [
-    header.join(","),
-    ...rowsData.map(r => r.map(field => `"${field}"`).join(","))
-  ].join("\n");
+    const csvContent = [
+      header.join(","),
+      ...rowsData.map(r => r.map(field => `"${field}"`).join(","))
+    ].join("\n");
 
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.setAttribute("href", url);
-  link.setAttribute("download", `members_${new Date().toISOString().slice(0,10)}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `members_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="p-6 bg-white rounded-xl shadow-lg border border-gray-100">
@@ -128,16 +119,8 @@ export default function Members() {
           <div>
             <h2 className="text-2xl font-semibold text-gray-900">Members List</h2>
             <div className="flex flex-wrap gap-4 text-sm text-gray-600 mt-1">
-              <p>
-                Total Members:{" "}
-                <span className="font-semibold text-gray-800">{filteredMembers.length || 0}</span>
-              </p>
-              <p>
-                Active Members:{" "}
-                <span className="font-semibold text-green-700">
-                  {filteredMembers.filter(m => m.active).length}
-                </span>
-              </p>
+              <p>Total Members: <span className="font-semibold text-gray-800">{filteredMembers.length || 0}</span></p>
+              <p>Active Members: <span className="font-semibold text-green-700">{filteredMembers.filter(m => m.active).length}</span></p>
             </div>
           </div>
         </div>
@@ -173,9 +156,7 @@ export default function Members() {
       {loading ? (
         <div className="text-center py-12 text-gray-500 font-medium">Loading members...</div>
       ) : filteredMembers.length === 0 ? (
-        <div className="text-gray-500 text-center py-12 text-lg font-medium">
-          No members found
-        </div>
+        <div className="text-gray-500 text-center py-12 text-lg font-medium">No members found</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full border border-gray-100 rounded-lg overflow-hidden text-sm text-gray-700">
@@ -196,16 +177,14 @@ export default function Members() {
                   <td className="py-3 px-4">{m.phone || <span className="text-gray-400 italic">N/A</span>}</td>
                   <td className="py-3 px-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      m.active
-                        ? 'bg-green-100 text-green-700 border border-green-200'
-                        : 'bg-red-100 text-red-700 border border-red-200'
+                      m.active ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'
                     }`}>
                       {m.active ? 'Active' : 'Inactive'}
                     </span>
                   </td>
                   <td className="py-3 px-4 flex space-x-2">
                     <button onClick={() => openModal(m)} className="text-blue-600 hover:text-blue-800"><FaEdit /></button>
-                    <button onClick={() => handleDelete(m.memberName)} className="text-red-600 hover:text-red-800"><FaTrash /></button>
+                    <button onClick={() => handleDelete(m._id)} className="text-red-600 hover:text-red-800"><FaTrash /></button>
                   </td>
                 </tr>
               ))}
