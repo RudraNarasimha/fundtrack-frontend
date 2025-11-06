@@ -82,8 +82,8 @@ export default function Dashboard(){
         if (months[idx]) {
           months[idx].total = m.total || 0;
           months[idx].target = m.target || 0;
-          months[idx].extra = m.extra || 0;
-          months[idx].balance = Math.max(0, (m.target || 0) - ((m.total || 0) - (m.extra || 0)));
+          months[idx].extra = Math.max(0, (m.total || 0) - (m.target || 0));
+          months[idx].balance = Math.max(0, (m.target || 0) - ((m.total || 0) - months[idx].extra));
         }
       });
 
@@ -273,7 +273,7 @@ async function exportCSV() {
           {viewMode === 'Single' && (
             <>
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
                 <div className="bg-white p-4 rounded shadow flex items-center justify-between">
                   <div>
                     <div className="text-sm text-gray-500">Target per Head</div>
@@ -301,6 +301,13 @@ async function exportCSV() {
                     <div className="text-2xl font-bold">₹{summary.monthlyTarget-summary.totalCollected || 0}</div>
                   </div>
                   <div className="text-red-600 text-2xl">📉</div>
+                </div>
+                <div className="bg-white p-4 rounded shadow flex items-center justify-between">
+                  <div>
+                    <div className="text-sm text-gray-500">Extra Amount</div>
+                    <div className="text-2xl font-bold">₹{Math.max(0, (summary.totalCollected - summary.monthlyTarget) || 0)}</div>
+                  </div>
+                  <div className="text-red-600 text-2xl">💹</div>
                 </div>
               </div>
 
@@ -518,6 +525,7 @@ async function exportCSV() {
     </div>
   );
 }
+
 
 
 
