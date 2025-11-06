@@ -11,6 +11,7 @@ export default function Contributions() {
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editContribution, setEditContribution] = useState(null);
+  const [addMembersModalOpen, setAddMembersModalOpen] = useState(false);
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [filteredMembers, setFilteredMembers] = useState([]);
@@ -25,7 +26,7 @@ export default function Contributions() {
     extra: 0,
   });
 
-  // Fetch data
+  // Fetch contributions & members
   useEffect(() => {
     fetchContributions();
     fetchMembers();
@@ -48,7 +49,6 @@ export default function Contributions() {
     try {
       const res = await fetch(`${API}/members`);
       const data = await res.json();
-      // handle both { data: [...] } and plain array
       setMembers(Array.isArray(data) ? data : data.data || []);
     } catch (err) {
       console.error("Error fetching members:", err);
@@ -64,6 +64,7 @@ export default function Contributions() {
     return matchSearch && matchMonth;
   });
 
+  // Open add/edit contribution modal
   const openModal = (contribution = null) => {
     setEditContribution(contribution);
     setFormData(
@@ -90,9 +91,46 @@ export default function Contributions() {
     setFilteredMembers([]);
   };
 
+  // Add Members modal
+  const openAddMembersModal = () => {
+    setAddMembersModalOpen(true);
+  };
+
+  const closeAddMembersModal = () => {
+    setAddMembersModalOpen(false);
+  };
+
+  const handleAddMemberContribution = async (memberName) => {
+    const existing = contributions.find(
+      c => c.memberName === memberName && c.month === filterMonth && c.year === filterYear
+    );
+    if (existing) return;
+
+    const newContribution = {
+      memberName,
+      month: filterMonth,
+      year: filterYear,
+      target: 300,
+      amountPaid: 0,
+      method: 'Cash',
+      status: 'Pending',
+      extra: 0
+    };
+
+    try {
+      const res = await fetch(`${API}/contributions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newContribution)
+      });
+      if (res.ok) fetchContributions();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     const memberExists = members.some(
       (m) => m.memberName.toLowerCase() === formData.memberName.toLowerCase()
     );
@@ -172,6 +210,10 @@ export default function Contributions() {
     }
   };
 
+  // Members not already added for this month
+  const availableMembersForAdd = members
+    .filter(m => !contributions.some(c => c.memberName === m.memberName && c.month === filterMonth && c.year === filterYear));
+
   return (
     <div className="bg-white p-6 rounded-lg shadow-md max-w-full">
       {/* Header */}
@@ -204,11 +246,19 @@ export default function Contributions() {
           >
             ⬇ Export CSV
           </button>
+
           <button
             onClick={() => openModal()}
             className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center space-x-2"
           >
             <FaPlus /> <span>Add Contribution</span>
+          </button>
+
+          <button
+            onClick={openAddMembersModal}
+            className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded flex items-center space-x-2"
+          >
+            <FaPlus /> <span>Add Members</span>
           </button>
         </div>
       </div>
@@ -295,13 +345,12 @@ export default function Contributions() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Add/Edit Contribution Modal */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md relative">
             <h3 className="text-xl font-bold mb-4">{editContribution ? 'Edit Contribution' : 'Add Contribution'}</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
-
               {/* Member Name */}
               <div className="relative">
                 <label className="block mb-1 font-medium text-gray-700">Member Name</label>
@@ -431,6 +480,35 @@ export default function Contributions() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Members Modal */}
+      {addMembersModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md relative">
+            <h3 className="text-xl font-bold mb-4">Add Members for {monthNames[filterMonth-1]} {filterYear}</h3>
+            {availableMembersForAdd.length === 0 ? (
+              <p className="text-gray-500">All members already added for this month.</p>
+            ) : (
+              <ul className="max-h-64 overflow-y-auto space-y-1">
+                {availableMembersForAdd.map((m, i) => (
+                  <li
+                    key={i}
+                    onClick={() => handleAddMemberContribution(m.memberName)}
+                    className="cursor-pointer px-3 py-2 bg-gray-100 rounded hover:bg-gray-200"
+                  >
+                    {m.memberName}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex justify-end mt-4">
+              <button onClick={closeAddMembersModal} className="px-4 py-2 border rounded hover:bg-gray-100">
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
