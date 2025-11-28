@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { FaHandHoldingUsd, FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
 
-const API = 'http://localhost:5000/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export default function Loans() {
   const [loans, setLoans] = useState([]);
@@ -428,3 +428,4 @@ export default function Loans() {
   </div>
 );
 }
+
