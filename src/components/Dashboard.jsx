@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaSignInAlt, FaSignOutAlt, FaChartPie, FaUsers, FaHandHoldingUsd } from "react-icons/fa";
+import { FaSackDollar } from "react-icons/fa6";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell,
   ResponsiveContainer, Legend
@@ -8,6 +9,8 @@ import {
 
 import Members from './Members';
 import Contributions from './Contributions';
+import Loans from './Loans';
+import Footer from './Footer';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -38,6 +41,22 @@ export default function Dashboard() {
 
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('adminToken'));
 
+  const [loansData, setLoansData] = useState([]);
+
+useEffect(() => {
+  fetchLoansOverview();
+}, []);
+
+async function fetchLoansOverview() {
+  try {
+    const res = await fetch(`${API}/loan`); // same API
+    const json = await res.json();
+    setLoansData(json.data || []);
+  } catch (err) {
+    console.error(err);
+  }
+}
+  
   useEffect(() => {
     fetchAll();
     fetchCharts();
@@ -155,9 +174,11 @@ export default function Dashboard() {
           <div className="flex space-x-4">
             {[
               { name: 'Dashboard', icon: <FaChartPie className="inline-block mr-2 text-lg" /> },
+              { name: 'Loans Overview', icon: <FaSackDollar className="inline-block mr-2 text-lg" /> },
               ...(isLoggedIn ? [
                 { name: 'Members', icon: <FaUsers className="inline-block mr-2 text-lg" /> },
-                { name: 'Contributions', icon: <FaHandHoldingUsd className="inline-block mr-2 text-lg" /> }
+                { name: 'Contributions', icon: <FaHandHoldingUsd className="inline-block mr-2 text-lg" /> },
+                { name: 'Loans', icon: <FaSackDollar className="inline-block mr-2 text-lg" /> }
               ] : [])
             ].map(tab => (
               <button
@@ -182,7 +203,7 @@ export default function Dashboard() {
               className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-md font-semibold shadow-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center space-x-2"
             >
               {isLoggedIn ? <FaSignOutAlt className="w-4 h-4" /> : <FaSignInAlt className="w-4 h-4" />}
-              <span>{isLoggedIn ? 'Logout' : 'Admin Login'}</span>
+              <span>{isLoggedIn ? 'Logout' : 'Admin'}</span>
             </button>
           </div>
         </div>
@@ -518,9 +539,98 @@ export default function Dashboard() {
 
 {isLoggedIn && activeTab === 'Contributions' && <Contributions />}
 
-      <div className="h-16" />
+      {isLoggedIn && activeTab === 'Loans' && <Loans />}
+
+{activeTab === 'Loans Overview' && (
+  <div className="p-6 max-w-7xl mx-auto">
+    {/* Search Bar */}
+    <div className="mb-4 md:mb-6">
+      <input
+        type="text"
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Search by member name..."
+        className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+
+    {/* Loans Cards */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {loansData
+        .filter(loan => loan.memberName.toLowerCase().includes(search.toLowerCase()))
+        .map((loan, idx) => (
+          <div key={idx} className="bg-white p-4 rounded-lg shadow hover:shadow-lg transition-shadow flex">
+
+            {/* Left side: loan info */}
+            <div className="flex-1 pr-4 border-r border-gray-200">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="font-semibold text-gray-700">{loan.memberName}</h3>
+
+              </div>
+
+              <div className="text-sm text-gray-500">Loan Amount</div>
+              <div className="text-lg font-bold mb-2">₹{Number(loan.loanAmount).toFixed(2)}</div>
+
+              <div className="text-sm text-gray-500">Monthly EMI</div>
+              <div className="text-lg font-bold mb-2">₹{Number(loan.monthlyEMI).toFixed(2)}</div>
+
+              <div className="text-sm text-gray-500">Total Repayment</div>
+              <div className="text-lg font-bold mb-2">₹{Number(loan.totalRepayment).toFixed(2)}</div>
+
+              <div className="text-sm text-gray-500">Amount Paid</div>
+              <div className="text-lg font-bold mb-2">₹{Number(loan.amountPaid || 0).toFixed(2)}</div>
+
+              <div className="text-sm text-gray-500">Remaining Due</div>
+              <div className="text-lg font-bold mb-2">₹{Number(loan.remainingDue || 0).toFixed(2)}</div>
+
+              <div className="text-sm text-gray-500">Start Date</div>
+              <div className="text-lg font-bold mb-2">{new Date(loan.loanStartDate).toLocaleDateString()}</div>
+
+              <div className="text-sm text-gray-500">Tenure</div>
+              <div className="text-lg font-bold mb-2">{loan.tenure} months</div>
+            </div>
+
+            {/* Right side: installments */}
+            <div className="w-48 flex-shrink-0 pl-4">
+
+              <div className="w-44 flex-shrink-0 flex flex-col">
+              <span className={`mt-2 mb-2 px-2 py-1 text-xs rounded-full text-center w-full ${
+      loan.status === "Active" ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-800"
+    }`}>{loan.status}</span>
+    </div>
+             
+              <div className="max-h-64 overflow-y-auto border rounded p-2 bg-gray-50">
+                {loan.installments && loan.installments.length > 0 ? (
+                  loan.installments.map((inst, i) => (
+                    <div key={i} className="flex justify-between text-sm text-gray-700 border-b last:border-b-0 py-1">
+                      <span>{new Date(inst.date).toLocaleDateString()}</span>
+                      <span>₹{Number(inst.amount).toFixed(2)}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-gray-400 text-sm">No installments yet</div>
+                )}
+              </div>
+              
+            </div>
+
+          </div>
+        ))
+      }
+
+      {loansData.length === 0 && (
+        <div className="col-span-2 text-center py-12 text-gray-500 italic">No loans available</div>
+      )}
+    </div>
+  </div>
+)}
+
+{activeTab === 'Dashboard' && <Footer />}
+      <div/>
     </div>
   );
 }
+
+
 
 
